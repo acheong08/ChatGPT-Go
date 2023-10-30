@@ -1,6 +1,7 @@
-package chatgptgo
+package chatbot
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -39,8 +40,10 @@ func (c *Chatbot) GetHistory(offset, limit int) (*Conversations, error) {
 		limit = 28
 	}
 	var conversations Conversations
-	err := c.getRequest(
+	err := c.makeRequest(
+		"GET",
 		fmt.Sprintf("https://chat.openai.com/backend-api/conversations?offset=%d&limit=%d&order=updated", offset, limit),
+		nil,
 		&conversations,
 	)
 	return &conversations, err
@@ -48,15 +51,31 @@ func (c *Chatbot) GetHistory(offset, limit int) (*Conversations, error) {
 
 func (c *Chatbot) GetConversation(conversationID string) (*Conversation, error) {
 	var conversation Conversation
-	err := c.getRequest(
+	err := c.makeRequest(
+		"GET",
 		fmt.Sprintf("https://chat.openai.com/backend-api/conversation/%s", conversationID),
+		nil,
 		&conversation,
 	)
 	return &conversation, err
 }
 
-func (c *Chatbot) getRequest(url string, obj any) error {
-	req, err := http.NewRequest("GET", url, nil)
+func (c *Chatbot) makeRequest(method, url string, body, obj any) error {
+	if method == "GET" && body != nil {
+		return fmt.Errorf("Cannot send body with GET request")
+	}
+	var req *http.Request
+	var err error
+	if body != nil {
+		bodyBytes, err := json.Marshal(body)
+		if err != nil {
+			return err
+		}
+		body_reader := bytes.NewReader(bodyBytes)
+		req, err = http.NewRequest(method, url, body_reader)
+	} else {
+		req, err = http.NewRequest(method, url, nil)
+	}
 	if err != nil {
 		return err
 	}
@@ -70,9 +89,11 @@ func (c *Chatbot) getRequest(url string, obj any) error {
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("Received status code %d", resp.StatusCode)
 	}
-	err = json.NewDecoder(resp.Body).Decode(obj)
-	return err
-
+	if obj != nil {
+		err = json.NewDecoder(resp.Body).Decode(obj)
+		return err
+	}
+	return nil
 }
 
 func addHeaders(req *http.Request) {

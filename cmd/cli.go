@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/acheong08/ChatGPT-Go"
+	chatgptgo "github.com/acheong08/ChatGPT-Go/chatbot"
 )
 
 var accessToken = os.Getenv("ACCESS_TOKEN")
