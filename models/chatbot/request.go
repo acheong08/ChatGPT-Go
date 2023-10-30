@@ -1,6 +1,9 @@
 package chatbot
 
-import "github.com/acheong08/ChatGPT-Go/models"
+import (
+	"github.com/acheong08/ChatGPT-Go/models"
+	"github.com/google/uuid"
+)
 
 type action string
 
@@ -53,6 +56,7 @@ func defaultRequest() ChatbotRequest {
 		Messages:          []models.Message{},
 		Model:             ModelFree,
 		TimeZoneOffsetMin: 0,
+		ParentMessageID: uuid.New().String(),
 	}
 }
 
