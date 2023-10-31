@@ -36,13 +36,21 @@ func main() {
 	fmt.Println(string(jsonString))
 
 	// Send a request
-	req := chatbot.NewRequest(chatbot.WithMessage(models.NewMessage("user", models.MessageContent{
-		ContentType: "text",
-		Parts:       []string{"Hello, world!"},
-	})))
-	ch := make(chan string)
+	req, err := chatbot.NewRequest(
+		chatbot.WithMessage(
+			models.NewMessage("user", models.MessageContent{
+				ContentType: "text",
+				Parts:       []string{"Who are you?"},
+			}),
+		),
+		chatbot.WithModel(chatbot.ModelGPT4),
+	)
+	if err != nil {
+		panic(err)
+	}
+	ch := make(chan chatbot.ChatbotResponse)
 	cherr := make(chan error)
-	cb.StreamData("https://chat.openai.com/backend-api/conversation", req, ch, cherr)
+	cb.Ask(req, ch, cherr)
 
 	var stop bool
 	for {

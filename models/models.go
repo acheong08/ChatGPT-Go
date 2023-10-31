@@ -10,11 +10,12 @@ type Node struct {
 }
 
 type Message struct {
-	ID        string           `json:"id"`
-	Author    Author           `json:"author"`
+	ID        string         `json:"id"`
+	Author    Author         `json:"author"`
 	Content   MessageContent `json:"content"`
-	Metadata  map[string]any   `json:"metadata"`
-	Recipient string           `json:"recipient"`
+	Metadata  map[string]any `json:"metadata"`
+	Recipient string         `json:"recipient"`
+	EndTurn   bool           `json:"end_turn"`
 }
 
 type Author struct {
@@ -34,7 +35,7 @@ func NewMessage(role string, contents MessageContent) Message {
 		Author: Author{
 			Role: role,
 		},
-		Content: contents,
+		Content:  contents,
 		Metadata: map[string]any{},
 	}
 }

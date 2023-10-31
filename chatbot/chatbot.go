@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"strings"
 
 	"github.com/acheong08/ChatGPT-Go/config"
+	"github.com/acheong08/ChatGPT-Go/models/chatbot"
 	"github.com/acheong08/ChatGPT-Go/models/conversation"
 	http "github.com/bogdanfinn/fhttp"
 	tls_client "github.com/bogdanfinn/tls-client"
@@ -62,13 +64,50 @@ func (c *Chatbot) GetConversation(conversationID string) (*conversation.Conversa
 	)
 	return &conversation, err
 }
-func (c *Chatbot) StreamData(url string, body any, ch chan string, errch chan error) {
+
+func (c *Chatbot) Ask(body *chatbot.ChatbotRequest, ch chan chatbot.ChatbotResponse, errch chan error) {
+	rawChan := make(chan string)
+	c.streamData("https://chat.openai.com/backend-api/conversation", body, rawChan, errch)
+	go func(rawChan chan string, ch chan chatbot.ChatbotResponse, errch chan error) {
+		var conversation chatbot.ChatbotResponse
+		for {
+			select {
+			case raw, ok := <-rawChan:
+				if !ok {
+					errch <- fmt.Errorf("Channel died")
+					return
+				}
+				if raw == "" {
+					continue
+				}
+				if raw == "data: [DONE]" {
+					errch <- fmt.Errorf(config.ErrStreamEnd)
+					return
+				}
+				raw = strings.Replace(raw, "data: ", "", 1)
+				err := json.Unmarshal([]byte(raw), &conversation)
+				if err != nil {
+					errch <- err
+					return
+				}
+				ch <- conversation
+			case err := <-errch:
+				errch <- err
+				return
+			}
+		}
+	}(rawChan, ch, errch)
+
+}
+
+func (c *Chatbot) streamData(url string, body any, ch chan string, errch chan error) {
 	var req *http.Request
 	var err error
 	if body != nil {
 		bodyBytes, err := json.Marshal(body)
 		if err != nil {
 			errch <- err
+			return
 		}
 		fmt.Println(string(bodyBytes))
 		body_reader := bytes.NewReader(bodyBytes)
@@ -78,18 +117,21 @@ func (c *Chatbot) StreamData(url string, body any, ch chan string, errch chan er
 	}
 	if err != nil {
 		errch <- err
+		return
 	}
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.AccessToken))
 	addHeaders(req)
 	resp, err := (*c.HTTPClient).Do(req)
 	if err != nil {
 		errch <- err
+		return
 	}
 	if resp.StatusCode != 200 {
 		// Read body
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
 			errch <- err
+			return
 		}
 		fmt.Println(string(bodyBytes))
 		errch <- fmt.Errorf("Received status code %d", resp.StatusCode)
@@ -104,6 +146,7 @@ func (c *Chatbot) StreamData(url string, body any, ch chan string, errch chan er
 		if err := scanner.Err(); err != nil {
 			// Send error to error channel
 			errch <- err
+			return
 		}
 		// Send error to end stream
 		errch <- fmt.Errorf(config.ErrStreamEnd)

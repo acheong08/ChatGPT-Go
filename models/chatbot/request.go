@@ -1,7 +1,9 @@
 package chatbot
 
 import (
+	"github.com/acheong08/ChatGPT-Go/config"
 	"github.com/acheong08/ChatGPT-Go/models"
+	"github.com/acheong08/funcaptcha"
 	"github.com/google/uuid"
 )
 
@@ -56,7 +58,7 @@ func defaultRequest() ChatbotRequest {
 		Messages:          []models.Message{},
 		Model:             ModelFree,
 		TimeZoneOffsetMin: 0,
-		ParentMessageID: uuid.New().String(),
+		ParentMessageID:   uuid.New().String(),
 	}
 }
 
@@ -98,10 +100,24 @@ func WithMessage(message models.Message) requestArgs {
 	}
 }
 
-func NewRequest(args ...requestArgs) ChatbotRequest {
+func NewRequest(args ...requestArgs) (*ChatbotRequest, error) {
 	request := defaultRequest()
 	for _, arg := range args {
 		arg(&request)
 	}
-	return request
+	if request.ArkoseToken == "" {
+		var version int
+		switch request.Model {
+		case ModelFree:
+			version = 3
+		default:
+			version = 4
+		}
+		arkoseToken, err := funcaptcha.GetOpenAIToken(version, config.PUID, "")
+		if err != nil {
+			return nil, err
+		}
+		request.ArkoseToken = arkoseToken
+	}
+	return &request, nil
 }
