@@ -1,11 +1,12 @@
 package chatbot
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
-	"bufio"
 
 	"github.com/acheong08/ChatGPT-Go/config"
 	"github.com/acheong08/ChatGPT-Go/models/conversation"
@@ -61,41 +62,56 @@ func (c *Chatbot) GetConversation(conversationID string) (*conversation.Conversa
 	)
 	return &conversation, err
 }
-func (c *Chatbot) streamData(url string, body any, ch chan string) error {
+func (c *Chatbot) StreamData(url string, body any, ch chan string, errch chan error) {
 	var req *http.Request
 	var err error
 	if body != nil {
 		bodyBytes, err := json.Marshal(body)
 		if err != nil {
-			return err
+			errch <- err
 		}
+		fmt.Println(string(bodyBytes))
 		body_reader := bytes.NewReader(bodyBytes)
 		req, err = http.NewRequest(http.MethodPost, url, body_reader)
 	} else {
 		req, err = http.NewRequest(http.MethodPost, url, nil)
 	}
 	if err != nil {
-		return err
+		errch <- err
 	}
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.AccessToken))
 	addHeaders(req)
 	resp, err := (*c.HTTPClient).Do(req)
 	if err != nil {
-		return err
+		errch <- err
 	}
-	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("Received status code %d", resp.StatusCode)
+		// Read body
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			errch <- err
+		}
+		fmt.Println(string(bodyBytes))
+		errch <- fmt.Errorf("Received status code %d", resp.StatusCode)
 	}
-	// Stream response line by line
-	scanner := bufio.NewScanner(resp.Body)
-	for scanner.Scan() {
-		ch <- scanner.Text()
-	}
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-	return nil
+	go func(body io.ReadCloser, ch chan string, errch chan error) {
+		defer body.Close()
+		// Stream response line by line
+		scanner := bufio.NewScanner(body)
+		for scanner.Scan() {
+			ch <- scanner.Text()
+		}
+		if err := scanner.Err(); err != nil {
+			// Send error to error channel
+			errch <- err
+		}
+		// Send error to end stream
+		errch <- fmt.Errorf(config.ErrStreamEnd)
+		// Close channel
+		close(ch)
+		close(errch)
+	}(resp.Body, ch, errch)
+
 }
 
 func (c *Chatbot) makeRequest(method, url string, body, obj any) error {

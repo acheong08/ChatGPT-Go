@@ -35,5 +35,6 @@ func NewMessage(role string, contents MessageContent) Message {
 			Role: role,
 		},
 		Content: contents,
+		Metadata: map[string]any{},
 	}
 }
