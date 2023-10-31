@@ -1,6 +1,6 @@
 module github.com/acheong08/ChatGPT-Go
 
-go 1.21.3
+go 1.21
 
 require (
 	github.com/bogdanfinn/fhttp v0.5.24
