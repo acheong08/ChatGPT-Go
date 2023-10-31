@@ -12,7 +12,7 @@ type Node struct {
 type Message struct {
 	ID        string           `json:"id"`
 	Author    Author           `json:"author"`
-	Content   []MessageContent `json:"content"`
+	Content   MessageContent `json:"content"`
 	Metadata  map[string]any   `json:"metadata"`
 	Recipient string           `json:"recipient"`
 }
@@ -26,7 +26,7 @@ type MessageContent struct {
 	Parts       []string `json:"parts"`
 }
 
-func NewMessage(role string, contents []MessageContent) Message {
+func NewMessage(role string, contents MessageContent) Message {
 	// Generate message ID
 	id := uuid.New().String()
 	return Message{
