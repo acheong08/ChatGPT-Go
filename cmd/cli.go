@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	chatgptgo "github.com/acheong08/ChatGPT-Go/chatbot"
+	chatgptgo "github.com/acheong08/ChatGPT-Go"
 	"github.com/acheong08/ChatGPT-Go/config"
 	"github.com/acheong08/ChatGPT-Go/models"
 	"github.com/acheong08/ChatGPT-Go/models/chatbot"

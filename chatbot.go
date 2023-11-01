@@ -1,4 +1,4 @@
-package chatbot
+package chatgptgo
 
 import (
 	"bufio"
@@ -66,55 +66,18 @@ func (c *Chatbot) GetConversation(conversationID string) (*conversation.Conversa
 }
 
 func (c *Chatbot) Ask(body *chatbot.ChatbotRequest, ch chan chatbot.ChatbotResponse, errch chan error) {
-	rawChan := make(chan string)
-	c.streamData("https://chat.openai.com/backend-api/conversation", body, rawChan, errch)
-	go func(rawChan chan string, ch chan chatbot.ChatbotResponse, errch chan error) {
-		var conversation chatbot.ChatbotResponse
-		for {
-			select {
-			case raw, ok := <-rawChan:
-				if !ok {
-					errch <- fmt.Errorf("Channel died")
-					return
-				}
-				if raw == "" {
-					continue
-				}
-				if raw == "data: [DONE]" {
-					errch <- fmt.Errorf(config.ErrStreamEnd)
-					return
-				}
-				raw = strings.Replace(raw, "data: ", "", 1)
-				err := json.Unmarshal([]byte(raw), &conversation)
-				if err != nil {
-					errch <- err
-					return
-				}
-				ch <- conversation
-			case err := <-errch:
-				errch <- err
-				return
-			}
-		}
-	}(rawChan, ch, errch)
-
-}
-
-func (c *Chatbot) streamData(url string, body any, ch chan string, errch chan error) {
-	var req *http.Request
-	var err error
-	if body != nil {
-		bodyBytes, err := json.Marshal(body)
-		if err != nil {
-			errch <- err
-			return
-		}
-		fmt.Println(string(bodyBytes))
-		body_reader := bytes.NewReader(bodyBytes)
-		req, err = http.NewRequest(http.MethodPost, url, body_reader)
-	} else {
-		req, err = http.NewRequest(http.MethodPost, url, nil)
+	if body == nil {
+		errch <- fmt.Errorf("Body cannot be nil")
+		return
 	}
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		errch <- err
+		return
+	}
+	fmt.Println(string(bodyBytes))
+	body_reader := bytes.NewReader(bodyBytes)
+	req, err := http.NewRequest(http.MethodPost, "https://chat.openai.com/backend-api/conversation", body_reader)
 	if err != nil {
 		errch <- err
 		return
@@ -136,12 +99,30 @@ func (c *Chatbot) streamData(url string, body any, ch chan string, errch chan er
 		fmt.Println(string(bodyBytes))
 		errch <- fmt.Errorf("Received status code %d", resp.StatusCode)
 	}
-	go func(body io.ReadCloser, ch chan string, errch chan error) {
+	go func(body io.ReadCloser, ch chan chatbot.ChatbotResponse, errch chan error) {
 		defer body.Close()
+		defer close(ch)
+		defer close(errch)
 		// Stream response line by line
 		scanner := bufio.NewScanner(body)
 		for scanner.Scan() {
-			ch <- scanner.Text()
+			var resp chatbot.ChatbotResponse
+			raw := scanner.Text()
+			if raw == "" {
+				continue
+			}
+			if raw == "data: [DONE]" {
+				errch <- fmt.Errorf(config.ErrStreamEnd)
+				return
+			}
+			raw = strings.Replace(raw, "data: ", "", 1)
+			err := json.Unmarshal([]byte(raw), &resp)
+			if err != nil {
+				errch <- err
+				return
+			}
+			ch <- resp
+
 		}
 		if err := scanner.Err(); err != nil {
 			// Send error to error channel
@@ -150,9 +131,7 @@ func (c *Chatbot) streamData(url string, body any, ch chan string, errch chan er
 		}
 		// Send error to end stream
 		errch <- fmt.Errorf(config.ErrStreamEnd)
-		// Close channel
-		close(ch)
-		close(errch)
+
 	}(resp.Body, ch, errch)
 
 }

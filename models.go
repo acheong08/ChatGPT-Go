@@ -1,4 +1,4 @@
-package chatbot
+package chatgptgo
 
 import (
 	"github.com/bogdanfinn/tls-client"
