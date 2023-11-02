@@ -118,8 +118,8 @@ func (c *Chatbot) Ask(body *chatbot.ChatbotRequest, ch chan chatbot.ChatbotRespo
 			raw = strings.Replace(raw, "data: ", "", 1)
 			err := json.Unmarshal([]byte(raw), &resp)
 			if err != nil {
-				errch <- err
-				return
+				fmt.Println(raw)
+				continue
 			}
 			ch <- resp
 

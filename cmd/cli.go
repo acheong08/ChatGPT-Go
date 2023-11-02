@@ -9,11 +9,13 @@ import (
 	"github.com/acheong08/ChatGPT-Go/config"
 	"github.com/acheong08/ChatGPT-Go/models"
 	"github.com/acheong08/ChatGPT-Go/models/chatbot"
+	"github.com/acheong08/funcaptcha"
 )
 
 var accessToken = os.Getenv("ACCESS_TOKEN")
 
 func main() {
+	captchaSolver := funcaptcha.NewSolver(funcaptcha.WithHarpool)
 	cb, err := chatgptgo.NewChatbot(accessToken)
 	if err != nil {
 		panic(err)
@@ -34,16 +36,21 @@ func main() {
 		panic(err)
 	}
 	fmt.Println(string(jsonString))
-
+	// Get arkose token
+	arkoseToken, err := captchaSolver.GetOpenAIToken(funcaptcha.ArkVerChat4, config.PUID)
+	if err != nil {
+		panic(err)
+	}
 	// Send a request
 	req, err := chatbot.NewRequest(
 		chatbot.WithMessage(
 			models.NewMessage("user", models.MessageContent{
 				ContentType: "text",
-				Parts:       []string{"Who are you?"},
+				Parts:       []string{"Who won the most recent world cup?"},
 			}),
 		),
-		chatbot.WithModel(chatbot.ModelGPT4),
+		chatbot.WithModel(chatbot.ModelBrowsing),
+		chatbot.WithArkoseToken(arkoseToken),
 	)
 	if err != nil {
 		panic(err)
@@ -55,8 +62,8 @@ func main() {
 	var stop bool
 	for {
 		select {
-		case data := <-ch:
-			fmt.Println(data)
+		case _ = <-ch:
+			fmt.Print(".")
 		case err := <-cherr:
 			if err != nil {
 				if err.Error() == config.ErrStreamEnd {
