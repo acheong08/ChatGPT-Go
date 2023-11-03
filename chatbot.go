@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/url"
 	"strings"
 
@@ -65,6 +66,44 @@ func (c *Chatbot) GetConversation(conversationID string) (*conversation.Conversa
 	return &conversation, err
 }
 
+// Ask No Stream
+func (c *Chatbot) AskNS(body *chatbot.ChatbotRequest) (map[string]*chatbot.ChatbotResponse, error) {
+	ch := make(chan chatbot.ChatbotResponse)
+	cherr := make(chan error)
+	go c.Ask(body, ch, cherr)
+	resps := make(map[string]*chatbot.ChatbotResponse)
+	for {
+		select {
+		case data := <-ch:
+			tool_finished := false
+			if status, ok := data.Message.Metadata["status"]; ok && status == "finished" {
+				tool_finished = true
+			}
+			if data.Message.EndTurn || tool_finished || data.Message.Status == "finished_successfully" {
+				role := data.Message.Author.Role
+				if data.Message.Author.Name != "" {
+					log.Println(data)
+					role = data.Message.Author.Name
+					if role == "dalle.text2im" {
+						if data.Message.Content.ContentType != "multimodal_text" {
+							continue
+						}
+					}
+				}
+				resps[role] = &data
+			}
+		case err := <-cherr:
+			if err != nil {
+				if err.Error() == config.ErrStreamEnd {
+					return resps, nil
+				} else {
+					return nil, err
+				}
+			}
+		}
+	}
+}
+
 func (c *Chatbot) Ask(body *chatbot.ChatbotRequest, ch chan chatbot.ChatbotResponse, errch chan error) {
 	if body == nil {
 		errch <- fmt.Errorf("Body cannot be nil")
@@ -119,6 +158,7 @@ func (c *Chatbot) Ask(body *chatbot.ChatbotRequest, ch chan chatbot.ChatbotRespo
 			err := json.Unmarshal([]byte(raw), &resp)
 			if err != nil {
 				fmt.Println(raw)
+				fmt.Println(err)
 				continue
 			}
 			ch <- resp
@@ -170,6 +210,24 @@ func (c *Chatbot) makeRequest(method, url string, body, obj any) error {
 		return err
 	}
 	return nil
+}
+
+type Download struct {
+	Status      string `json:"status"`
+	DownloadURL string `json:"download_url"`
+	FileName    string `json:"file_name"`
+}
+
+func (c *Chatbot) DownloadFile(fileID string) (Download, error) {
+	fileID = strings.Replace(fileID, "file-service://", "", 1)
+	var download Download
+	err := c.makeRequest(
+		"GET",
+		fmt.Sprintf("https://chat.openai.com/backend-api/files/%s/download", fileID),
+		nil,
+		&download,
+	)
+	return download, err
 }
 
 func addHeaders(req *http.Request) {
