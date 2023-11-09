@@ -63,7 +63,7 @@ func main() {
 		chatbot.WithMessage(
 			models.NewMessage("user", models.MessageContent{
 				ContentType: "text",
-				Parts:       []any{"Generate an image of a creepy bird"},
+				Parts:       []any{"Who is acheong08?"},
 			}),
 		),
 		chatbot.WithModel(chatbot.ModelGPT4),
@@ -92,7 +92,6 @@ func main() {
 				fmt.Println(down)
 			}
 		} else {
-			fmt.Printf("Got a %s which is not dalle_image", contentType)
 		}
 	}
 

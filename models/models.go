@@ -49,6 +49,9 @@ type MessageContent struct {
 }
 
 func (m *MessageContent) Type() string {
+	if len(m.Parts) == 0 {
+		return "empty"
+	}
 	typeOf := reflect.TypeOf(m.Parts[0])
 	log.Println(fmt.Sprintf("TypeOf: %v", typeOf))
 	if typeOf.Kind() == reflect.String {

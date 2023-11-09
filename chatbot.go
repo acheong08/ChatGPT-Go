@@ -23,6 +23,7 @@ func NewChatbot(accessToken string) (Chatbot, error) {
 		tls_client.NewNoopLogger(),
 		tls_client.WithClientProfile(profiles.Firefox_117),
 		tls_client.WithRandomTLSExtensionOrder(),
+		tls_client.WithTimeoutSeconds(180),
 	)
 	if config.PUID != "" {
 		client.SetCookies(&url.URL{
