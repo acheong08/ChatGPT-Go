@@ -176,6 +176,19 @@ func (c *Chatbot) Ask(body *chatbot.ChatbotRequest, ch chan chatbot.ChatbotRespo
 
 }
 
+func (c *Chatbot) GetModels() ([]chatbot.Model, error) {
+ 	var respModel struct {
+		Models	[]chatbot.Model `json:"models"`
+	}
+	err := c.makeRequest(
+		"GET",
+		"https://chat.openai.com/backend-api/models",
+		nil,
+		&respModel,
+	)
+	return respModel.Models, err
+}
+
 func (c *Chatbot) makeRequest(method, url string, body, obj any) error {
 	if method == "GET" && body != nil {
 		return fmt.Errorf("Cannot send body with GET request")

@@ -37,6 +37,23 @@ func main() {
 	// }
 	// fmt.Println(string(jsonString))
 	// Get arkose token
+	// Get models
+	availableModels, err := cb.GetModels()
+	if err != nil {
+		panic(err)
+	}
+	// Check if "GPT-4 (All Tools)" is in the models
+	var found bool
+	for _, model := range availableModels {
+		if model.Title == "GPT-4 (All Tools)" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		panic("GPT-4 (All Tools) not found")
+	}
+
 	arkoseToken, err := captchaSolver.GetOpenAIToken(funcaptcha.ArkVerChat4, config.PUID)
 	if err != nil {
 		panic(err)
@@ -46,10 +63,10 @@ func main() {
 		chatbot.WithMessage(
 			models.NewMessage("user", models.MessageContent{
 				ContentType: "text",
-				Parts:       []any{"Generate an image of a flappy bird"},
+				Parts:       []any{"Generate an image of a creepy bird"},
 			}),
 		),
-		chatbot.WithModel(chatbot.ModelDalle),
+		chatbot.WithModel(chatbot.ModelGPT4),
 		chatbot.WithArkoseToken(arkoseToken),
 	)
 	if err != nil {
